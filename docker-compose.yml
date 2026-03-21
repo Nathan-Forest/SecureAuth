@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: secureauth-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: secureauth
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - secureauth-network
+
+  api:
+    build:
+      context: ./backend/SecureAuthAPI
+      dockerfile: Dockerfile
+    container_name: secureauth-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=secureauth;Username=postgres;Password=postgres
+      - Jwt__Secret=YourSuperSecretJWTKeyThatIsAtLeast32CharactersLong!
+      - Jwt__Issuer=SecureAuthAPI
+      - Jwt__Audience=SecureAuthClients
+    ports:
+      - "5000:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - secureauth-network
+
+networks:
+  secureauth-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
